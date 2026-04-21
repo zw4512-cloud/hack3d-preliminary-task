@@ -226,6 +226,40 @@ const arrowDir = arrowMap[loadDirection] || "↓";
 }
 
 // ── EXPORT BUTTON ─────────────────────────────────────────────────────────────
+function ExportStlBtn({ params }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleExportStl = async () => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API}/export/stl`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      const a = document.createElement("a");
+      a.href = "data:model/stl;base64," + data.stl_base64;
+      a.download = data.filename || "optimized_design.stl";
+      a.click();
+    } catch (e) {
+      alert("STL export failed: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button className="export-btn" onClick={handleExportStl} disabled={loading}>
+      {loading ? "EXPORTING STL..." : "⬇ EXPORT STL"}
+    </button>
+  );
+}
+
 function ExportBtn({ result, params }) {
   const [open, setOpen] = useState(false);
 
@@ -673,6 +707,7 @@ export default function App() {
                   <span className="metric-label">COMPUTE TIME</span>
                   <span className="metric-value">{elapsed}s</span>
                   <ExportBtn result={result} params={params} />
+                  {result && <ExportStlBtn params={params} />}
                 </div>
               </div>
               <div className="panel result-panel">

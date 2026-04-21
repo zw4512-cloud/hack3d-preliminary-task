@@ -27,6 +27,9 @@ import io
 import json
 import time
 import threading
+import tempfile
+from stl import mesh
+
 
 from fem3d_numpy import HexFEMSolver3D
 from simp_numpy import SIMPOptimizer
@@ -246,9 +249,121 @@ def build_plots(fem, density, volume_fraction, history):
 
     return conv_img, structure_imgs, hist_img
 
+def voxel_faces(x0, x1, y0, y1, z0, z1):
+    """Return 12 triangles for one axis-aligned voxel box."""
+    v = np.array([
+        [x0, y0, z0],  # 0
+        [x1, y0, z0],  # 1
+        [x1, y1, z0],  # 2
+        [x0, y1, z0],  # 3
+        [x0, y0, z1],  # 4
+        [x1, y0, z1],  # 5
+        [x1, y1, z1],  # 6
+        [x0, y1, z1],  # 7
+    ], dtype=float)
+
+    triangles = [
+        [v[0], v[1], v[2]], [v[0], v[2], v[3]],  # bottom
+        [v[4], v[6], v[5]], [v[4], v[7], v[6]],  # top
+        [v[0], v[4], v[5]], [v[0], v[5], v[1]],  # front
+        [v[3], v[2], v[6]], [v[3], v[6], v[7]],  # back
+        [v[0], v[3], v[7]], [v[0], v[7], v[4]],  # left
+        [v[1], v[5], v[6]], [v[1], v[6], v[2]],  # right
+    ]
+    return triangles
+
+
+def density_to_stl(fem, density, threshold=0.5, out_path="optimized_design.stl"):
+    """
+    Convert all elements with density >= threshold into voxel boxes
+    and export them as a single STL mesh.
+    """
+    triangles = []
+
+    active = np.where(np.array(density) >= threshold)[0]
+    if len(active) == 0:
+        raise ValueError(f"No elements found with density >= {threshold}")
+
+    for elem_idx in active:
+        elem_nodes = fem.elems_t[elem_idx]
+        coords = fem.nodes_np[elem_nodes]
+
+        x0, y0, z0 = coords.min(axis=0)
+        x1, y1, z1 = coords.max(axis=0)
+
+        triangles.extend(voxel_faces(x0, x1, y0, y1, z0, z1))
+
+    data = np.zeros(len(triangles), dtype=mesh.Mesh.dtype)
+    stl_mesh = mesh.Mesh(data)
+
+    for i, tri in enumerate(triangles):
+        stl_mesh.vectors[i] = np.array(tri)
+
+    stl_mesh.save(out_path)
+    return out_path, len(active)
 
 # ── OPTIMIZE — SSE STREAM ─────────────────────────────────────────────────────
+@app.route('/export/stl', methods=['POST'])
+def export_stl():
+    """
+    Export optimized density field to STL for 3D printing.
 
+    Expects JSON:
+      {
+        nx, ny, nz,
+        fixedFace, loadFace, loadDirection, loadMagnitude,
+        volumeFraction, penalty, iterations,
+        threshold
+      }
+    """
+    try:
+        data = request.json
+        volume_frac = float(data.get('volumeFraction', 0.2))
+        penalty = float(data.get('penalty', 3.0))
+        iterations = int(data.get('iterations', 30))
+        threshold = float(data.get('threshold', 0.5))
+
+        fem = build_fem(data)
+
+        optimizer = SIMPOptimizer(
+            fem_solver=fem,
+            initial_density=volume_frac,
+            volume_fraction=volume_frac,
+            penalty=penalty,
+            filter_radius=0.02,
+        )
+
+        for _ in range(iterations):
+            result = optimizer.step()
+            if result['density_change'] < 1e-3:
+                break
+
+        density = optimizer.get_density()
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".stl")
+        tmp.close()
+
+        out_path, active_count = density_to_stl(
+            fem=fem,
+            density=density,
+            threshold=threshold,
+            out_path=tmp.name
+        )
+
+        with open(out_path, "rb") as f:
+            stl_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        return jsonify({
+            "success": True,
+            "filename": f"optimized_design_threshold_{threshold}.stl",
+            "stl_base64": stl_b64,
+            "active_elements": active_count,
+            "threshold": threshold,
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
 @app.route('/optimize/stream', methods=['POST'])
 def optimize_stream():
     """
