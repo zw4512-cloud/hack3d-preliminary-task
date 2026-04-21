@@ -131,42 +131,52 @@ def plot_3d_design(nodes, elems, density, threshold=0.5, title="3D Structure"):
 
 
 def build_fem(data):
-    """
-    Construct and configure a HexFEMSolver3D from a JSON request payload.
+    """Construct and configure a HexFEMSolver3D from request payload."""
+    nx = int(data.get('nx', 20))
+    ny = int(data.get('ny', 6))
+    nz = int(data.get('nz', 4))
 
-    Applies boundary conditions (fixed face) and a distributed load based on
-    the face labels sent from the React UI (e.g. 'x0', 'y1', 'z0').
-
-    Returns:
-        fem : configured HexFEMSolver3D instance ready for SIMPOptimizer
-    """
-    nx         = int(data.get('nx', 20))
-    ny         = int(data.get('ny', 6))
-    nz         = int(data.get('nz', 4))
     fixed_face = data.get('fixedFace', 'x0')
-    load_face  = data.get('loadFace', 'x1')
-    load_dir   = int(data.get('loadDirection', -1))
-    load_mag   = float(data.get('loadMagnitude', 1e4))
+    load_face = data.get('loadFace', 'x1')
+    load_dir = data.get('loadDirection', 'y-')
+    load_mag = float(data.get('loadMagnitude', 1e4))
 
-    fem = HexFEMSolver3D(E_mod=200e9, nu=0.3)   # Steel: E=200 GPa, Poisson's ratio=0.3
+    fem = HexFEMSolver3D(E_mod=200e9, nu=0.3)
     fem.set_mesh(Lx=1.0, Ly=0.2, Lz=0.1, nx=nx, ny=ny, nz=nz)
 
-    # Map face string labels → (axis_index, coordinate) pairs
     face_map = {
-        'x0': (0, 0.0), 'x1': (0, 1.0),
-        'y0': (1, 0.0), 'y1': (1, 0.2),
-        'z0': (2, 0.0), 'z1': (2, 0.1),
+        'x0': (0, 0.0),
+        'x1': (0, 1.0),
+        'y0': (1, 0.0),
+        'y1': (1, 0.2),
+        'z0': (2, 0.0),
+        'z1': (2, 0.1),
     }
 
-    bc_axis, bc_coord     = face_map.get(fixed_face, (0, 0.0))
+    direction_map = {
+        'x+': (0, +1.0),
+        'x-': (0, -1.0),
+        'y+': (1, +1.0),
+        'y-': (1, -1.0),
+        'z+': (2, +1.0),
+        'z-': (2, -1.0),
+    }
+
+    bc_axis, bc_coord = face_map.get(fixed_face, (0, 0.0))
     fem.fix_face(axis=bc_axis, coord=bc_coord)
 
     load_axis, load_coord = face_map.get(load_face, (0, 1.0))
+    force_dir, sign = direction_map.get(load_dir, (1, -1.0))
+
+    total_force = sign * load_mag
+
     fem.add_distributed_load(
-        axis=load_axis, coord=load_coord,
-        direction=load_dir,
-        total=load_mag / (fem.ny * fem.nz)   # Distribute total force over all face nodes
+        axis=load_axis,
+        coord=load_coord,
+        direction=force_dir,
+        total=total_force
     )
+
     return fem
 
 

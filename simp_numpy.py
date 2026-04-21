@@ -51,7 +51,12 @@ class SIMPOptimizer:
     """Pure NumPy SIMP topology optimizer."""
 
     def __init__(
-        self, fem_solver, initial_density=0.5, volume_fraction=0.3, penalty=3.0, filter_radius=1.5
+        self,
+        fem_solver,
+        initial_density=0.5,
+        volume_fraction=0.3,
+        penalty=3.0,
+        filter_radius=1.5
     ):
         """Initialize optimizer.
 
@@ -68,7 +73,6 @@ class SIMPOptimizer:
         self.filter = DensityFilter(fem_solver.nodes_np, fem_solver.elems_t, filter_radius)
 
         # Save boundary conditions from FEM solver
-        # (they should have been applied before creating the optimizer)
         self.fixed_dofs_saved = fem_solver.fixed_dofs.copy()
         self.F_global_saved = fem_solver.F_global.copy()
 
@@ -80,102 +84,101 @@ class SIMPOptimizer:
             "iteration": [],
         }
 
-
     def update_density(self, sensitivities):
         """
         Update densities using Optimality Criteria (OC) method with bisection.
-
-        Based on standard SIMP topology optimization method:
-        - Uses bisection to find optimal Lagrange multiplier
-        - Applies move limits for stability
-        - Enforces volume constraint
-        - Applies sensitivity filtering for checkerboard prevention
         """
-        # Volume constraint
         V_max = self.volume_fraction * self.n_elem
 
-        # OC method parameters
-        move_limit = 0.2  # Maximum change per iteration (standard: 0.2)
-        tol = 1e-3  # Convergence tolerance for bisection
-        max_iter = 100  # Max bisection iterations
+        move_limit = 0.2
+        tol = 1e-3
+        max_iter = 100
 
-        # Bisection for Lagrange multiplier
         lam_low = 0.0
         lam_high = 1e9
 
-        for lam_iter in range(max_iter):
-            # Geometric mean for better convergence
+        density_new = self.density.copy()
+
+        for _ in range(max_iter):
             if lam_low == 0:
-                lam_mid = lam_high / 2.0  # Arithmetic mean when lam_low = 0
+                lam_mid = lam_high / 2.0
             else:
                 lam_mid = np.sqrt(lam_low * lam_high)
 
-            # Optimality Criteria update (vectorized)
-            # xnew = max(0, max(x-move, min(1, min(x+move, x*sqrt(-dc/dv/lam)))))
-            # where dv = 1 for volume constraint
-
-            # Compute the OC factor: x * sqrt(-dc / dv / lam)
-            # For volume constraint, dv = 1
-            # Handle negative sensitivities (standard for compliance minimization)
             safe_sens = np.where(sensitivities < 0, sensitivities, -1e-10)
             oc_factor = self.density * np.sqrt(-safe_sens / lam_mid)
 
-            # Apply move limits: x ± move_limit
             density_new = np.maximum(
-                0.0,  # Lower bound: 0
+                0.0,
                 np.maximum(
-                    self.density - move_limit,  # Lower move limit
+                    self.density - move_limit,
                     np.minimum(
-                        1.0,  # Upper bound: 1
+                        1.0,
                         np.minimum(
-                            self.density + move_limit,  # Upper move limit
-                            oc_factor  # OC factor
+                            self.density + move_limit,
+                            oc_factor
                         )
                     )
                 )
             )
 
-            # Apply density filter to prevent checkerboard patterns
             density_new = self.filter.apply(density_new)
 
-            # Check volume constraint
             current_vol = np.sum(density_new)
             volume_error = current_vol - V_max
 
-            # Convergence check
             if abs(volume_error) < tol * V_max:
                 break
 
-            # Bisection update
             if volume_error > 0:
-                # Too much material, increase lambda (decrease density)
                 lam_low = lam_mid
             else:
-                # Too little material, decrease lambda (increase density)
                 lam_high = lam_mid
 
         return density_new
 
-    def optimize(self, n_iterations=50, verbose=True):
-        """Run topology optimization.
+    def step(self):
+        """Run one optimization iteration for streaming API."""
+        iteration = len(self.history["iteration"])
 
-        Uses boundary conditions that were applied before the optimizer was created.
-        """
+        results = self.fem_solver.solve(self.density)
+        compliance = results["compliance"]
+        sensitivities = results["sensitivities"]
+
+        density_new = self.update_density(sensitivities)
+        density_change = np.max(np.abs(density_new - self.density))
+        self.density = density_new
+
+        volume = np.sum(self.density) / self.n_elem
+        self.history["compliance"].append(compliance)
+        self.history["volume"].append(volume)
+        self.history["density_change"].append(density_change)
+        self.history["iteration"].append(iteration)
+
+        return {
+            "iteration": iteration,
+            "compliance": float(compliance),
+            "volume": float(volume),
+            "density_change": float(density_change),
+        }
+
+    def get_density(self):
+        """Return current density field."""
+        return self.density
+
+    def optimize(self, n_iterations=50, verbose=True):
+        """Run topology optimization."""
 
         for iteration in range(n_iterations):
-            ### compute compliance and sensitivities with current densities
             results = self.fem_solver.solve(self.density)
 
-            # Compute compliance and sensitivities
             compliance = results["compliance"]
             sensitivities = results["sensitivities"]
 
-            # Update densities
             density_new = self.update_density(sensitivities)
             density_change = np.max(np.abs(density_new - self.density))
             self.density = density_new
 
-            # Store history
             volume = np.sum(self.density) / self.n_elem
             self.history["compliance"].append(compliance)
             self.history["volume"].append(volume)

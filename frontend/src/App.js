@@ -10,7 +10,7 @@ const DEFAULT_PARAMS = {
   iterations: 30,
   fixedFace: "x0",
   loadFace: "x1",
-  loadDirection: -1,
+  loadDirection: "y-",
   loadMagnitude: 10000,
   threshold: 0.5,
 };
@@ -21,25 +21,25 @@ const PRESETS = [
     label: "Cantilever",
     icon: "⊣",
     desc: "Fixed left, load right",
-    params: { nx: 20, ny: 6, nz: 4, volumeFraction: 0.2, penalty: 3.0, iterations: 60, fixedFace: "x0", loadFace: "x1", loadDirection: -1, loadMagnitude: 10000, threshold: 0.5 },
+    params: { nx: 20, ny: 6, nz: 4, volumeFraction: 0.2, penalty: 3.0, iterations: 60, fixedFace: "x0", loadFace: "x1", loadDirection: "y-", loadMagnitude: 10000, threshold: 0.5 },
   },
   {
     label: "Bridge",
     icon: "⌒",
     desc: "Fixed bottom, load top-center",
-    params: { nx: 24, ny: 8, nz: 4, volumeFraction: 0.3, penalty: 3.0, iterations: 80, fixedFace: "y0", loadFace: "y1", loadDirection: -1, loadMagnitude: 20000, threshold: 0.5 },
+    params: { nx: 24, ny: 8, nz: 4, volumeFraction: 0.3, penalty: 3.0, iterations: 80, fixedFace: "y0", loadFace: "y1", loadDirection: "y-", loadMagnitude: 20000, threshold: 0.5 },
   },
   {
     label: "Column",
     icon: "⬆",
     desc: "Fixed base, vertical load",
-    params: { nx: 6, ny: 20, nz: 6, volumeFraction: 0.25, penalty: 3.5, iterations: 60, fixedFace: "y0", loadFace: "y1", loadDirection: -1, loadMagnitude: 50000, threshold: 0.5 },
+    params: { nx: 6, ny: 20, nz: 6, volumeFraction: 0.25, penalty: 3.5, iterations: 60, fixedFace: "y0", loadFace: "y1", loadDirection: "y-", loadMagnitude: 50000, threshold: 0.5 },
   },
   {
     label: "Quick Test",
     icon: "⚡",
     desc: "Fast low-res preview",
-    params: { nx: 10, ny: 4, nz: 3, volumeFraction: 0.2, penalty: 3.0, iterations: 30, fixedFace: "x0", loadFace: "x1", loadDirection: -1, loadMagnitude: 10000, threshold: 0.5 },
+    params: { nx: 10, ny: 4, nz: 3, volumeFraction: 0.2, penalty: 3.0, iterations: 30, fixedFace: "x0", loadFace: "x1", loadDirection: "y-", loadMagnitude: 10000, threshold: 0.5 },
   },
 ];
 
@@ -62,6 +62,15 @@ const FACES = [
   { value: "x0", label: "X₀" }, { value: "x1", label: "X₁" },
   { value: "y0", label: "Y₀" }, { value: "y1", label: "Y₁" },
   { value: "z0", label: "Z₀" }, { value: "z1", label: "Z₁" },
+];
+
+const LOAD_DIRECTIONS = [
+  { value: "x+", label: "+X" },
+  { value: "x-", label: "−X" },
+  { value: "y+", label: "+Y" },
+  { value: "y-", label: "−Y" },
+  { value: "z+", label: "+Z" },
+  { value: "z-", label: "−Z" },
 ];
 
 const ATTACKS = [
@@ -149,7 +158,16 @@ function BcDiagram({ fixedFace, loadFace, loadDirection }) {
   if (loadFace)  fc[loadFace]  = loadColor;
 
   // Arrow direction for load
-  const arrowDir = loadDirection === -1 ? "↓" : "↑";
+  const arrowMap = {
+  "x+": "→",
+  "x-": "←",
+  "y+": "↑",
+  "y-": "↓",
+  "z+": "↗",
+  "z-": "↙",
+};
+
+const arrowDir = arrowMap[loadDirection] || "↓";
 
   return (
     <div className="bc-diagram">
@@ -499,12 +517,17 @@ export default function App() {
             <div className="field">
               <div className="field-header">
                 <span className="field-label">Load Direction</span>
-                <span className="field-value">{params.loadDirection === -1 ? "−Y (down)" : "+Y (up)"}</span>
+                <span className="field-value">{params.loadDirection}</span>
               </div>
-              <div className="select-row">
-                {[{ value: -1, label: "↓ Down" }, { value: 1, label: "↑ Up" }].map(o => (
-                  <button key={o.value} className={`face-btn ${params.loadDirection === o.value ? "active" : ""}`}
-                    onClick={() => handleChange("loadDirection", o.value)}>{o.label}</button>
+              <div className="select-row" style={{ flexWrap: "wrap" }}>
+                {LOAD_DIRECTIONS.map(o => (
+                  <button
+                    key={o.value}
+                    className={`face-btn ${params.loadDirection === o.value ? "active" : ""}`}
+                    onClick={() => handleChange("loadDirection", o.value)}
+                  >
+                    {o.label}
+                  </button>
                 ))}
               </div>
             </div>
