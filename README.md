@@ -275,3 +275,45 @@ https://github.com/zw4512-cloud/hack3d-preliminary-task
 ## Acknowledgment
 
 This project is based on the Hack3D SIMP Topology Optimizer codebase and was extended for the preliminary task requirements.
+
+
+
+---
+
+## Final Task 1: Multiple Point Load Support
+
+The system was extended to support **multiple point loads** inside the design domain.
+
+### Implemented Features
+- Users can add, remove, and modify multiple point loads in the frontend
+- Each point load includes:
+  - location `(x, y, z)` in the mesh
+  - direction (`+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z`)
+  - magnitude
+- The backend reads the full `pointLoads` list from the request payload
+- Each load is mapped to the nearest FEM node and applied to the global force vector
+- The frontend displays all current loads in a dedicated **MULTIPLE POINT LOADS** panel
+
+### Frontend Changes
+In `frontend/src/App.js`:
+- replaced the previous single-load parameter structure with a `pointLoads` array
+- added UI controls to:
+  - add a new load
+  - remove an existing load
+  - edit load position, direction, and magnitude
+- updated presets to use the new multi-load format
+
+### Backend Changes
+In `app.py`:
+- added `apply_point_load(...)` to apply a load to the nearest FEM node
+- updated `build_fem(data)` to read `pointLoads`
+- applied all loads in a loop when multiple point loads are provided
+- preserved backward compatibility with the old single-load mode as a fallback
+
+### Result
+The optimization system now supports multiple point loads and can run successfully with:
+- a single point load
+- multiple point loads
+- modified load positions, directions, and magnitudes
+
+This completes the required functionality for **Final Task 1**.
