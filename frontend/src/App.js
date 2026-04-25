@@ -265,6 +265,90 @@ function InputPreview3D({ params }) {
   );
 }
 
+function densityToCubes(density, params, threshold) {
+  const cubes = [];
+  const { x: Lx, y: Ly, z: Lz } = DOMAIN_SIZE;
+
+  const dx = Lx / Math.max(params.nx, 1);
+  const dy = Ly / Math.max(params.ny, 1);
+  const dz = Lz / Math.max(params.nz, 1);
+
+  for (let ez = 0; ez < params.nz; ez++) {
+    for (let ey = 0; ey < params.ny; ey++) {
+      for (let ex = 0; ex < params.nx; ex++) {
+        const idx = ez * (params.nx * params.ny) + ey * params.nx + ex;
+        const rho = density[idx];
+
+        if (rho == null || rho < threshold) continue;
+
+        const cx = -Lx / 2 + (ex + 0.5) * dx;
+        const cy = -Ly / 2 + (ey + 0.5) * dy;
+        const cz = -Lz / 2 + (ez + 0.5) * dz;
+
+        cubes.push({
+          position: [cx, cy, cz],
+          size: [dx, dy, dz],
+          density: rho,
+        });
+      }
+    }
+  }
+
+  return cubes;
+}
+
+function OutputCubes({ density, params, threshold }) {
+  const cubes = useMemo(
+    () => densityToCubes(density, params, threshold),
+    [density, params.nx, params.ny, params.nz, threshold]
+  );
+
+  return (
+    <>
+      {cubes.map((cube, idx) => {
+        const opacity = 0.35 + 0.55 * cube.density;
+        return (
+          <mesh key={idx} position={cube.position}>
+            <boxGeometry args={cube.size} />
+            <meshStandardMaterial
+              color={cube.density > 0.8 ? "#39ff8a" : cube.density > 0.5 ? "#ffd166" : "#ff6b35"}
+              transparent
+              opacity={opacity}
+              wireframe={false}
+            />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+function OutputPreview3D({ result, params, threshold }) {
+  if (!result?.density) return null;
+
+  return (
+    <div style={{ width: "100%", height: 460, borderRadius: 10, overflow: "hidden" }}>
+      <Canvas camera={{ position: [12, 8, 12], fov: 45 }}>
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[10, 10, 10]} intensity={1.0} />
+        <directionalLight position={[-8, 6, -8]} intensity={0.5} />
+
+        <mesh>
+          <boxGeometry args={[DOMAIN_SIZE.x, DOMAIN_SIZE.y, DOMAIN_SIZE.z]} />
+          <meshStandardMaterial color="#4d9cff" wireframe transparent opacity={0.3} />
+        </mesh>
+
+        <OutputCubes
+          density={result.density}
+          params={params}
+          threshold={parseFloat(threshold)}
+        />
+
+        <OrbitControls enablePan enableZoom enableRotate />
+      </Canvas>
+    </div>
+  );
+}
 
 function estimateTime(p) {
   const s = Math.round(p.nx * p.ny * p.nz * p.iterations * 0.008);
@@ -1053,15 +1137,19 @@ export default function App() {
               </div>
 
               <div className="panel result-panel">
-                <div className="panel-title"><span className="dot green" /> 3D OPTIMIZED STRUCTURE</div>
+                <div className="panel-title"><span className="dot green" /> INTERACTIVE 3D OUTPUT</div>
                 <div className="threshold-tabs">
                   {["0.1", "0.3", "0.5"].map(t => (
-                    <button key={t} className={`tab-btn ${activeThreshold === t ? "active" : ""}`} onClick={() => setActiveThreshold(t)}>ρ &gt; {t}</button>
+                    <button
+                      key={t}
+                      className={`tab-btn ${activeThreshold === t ? "active" : ""}`}
+                      onClick={() => setActiveThreshold(t)}
+                    >
+                      ρ &gt; {t}
+                    </button>
                   ))}
                 </div>
-                {result.images.structure[activeThreshold] && (
-                  <img className="result-img" src={`data:image/png;base64,${result.images.structure[activeThreshold]}`} alt="structure" />
-                )}
+                <OutputPreview3D result={result} params={params} threshold={activeThreshold} />
               </div>
 
               <div className="panel result-panel">

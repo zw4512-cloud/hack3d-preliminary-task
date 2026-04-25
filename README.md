@@ -321,6 +321,8 @@ This completes the required functionality for **Final Task 1**.
 
 ---
 
+---
+
 ## Final Task 2: Interactive 3D Input Visualization
 
 An interactive 3D input preview was added to the frontend for pre-optimization setup.
@@ -353,3 +355,34 @@ In `frontend/src/App.js`:
 
 ### Result
 Users can now inspect the full optimization setup in an interactive 3D view before running the solver, making the input configuration more intuitive and easier to understand.
+
+---
+
+## Final Task 3: Interactive 3D Output Visualization
+
+An interactive 3D output visualization was added for post-optimization results.
+
+### Implemented Features
+- supports standard 3D interaction:
+  - rotation
+  - pan
+  - zoom
+- displays the optimized structure directly in the frontend
+- uses density-based voxel visualization
+- shows only elements above the selected density threshold
+- allows threshold switching for:
+  - `ρ > 0.1`
+  - `ρ > 0.3`
+  - `ρ > 0.5`
+- includes an outer domain wireframe to help distinguish the optimized structure from removed/void regions
+
+### Frontend Changes
+In `frontend/src/App.js`:
+- added an interactive 3D output viewer
+- converted returned density data into voxel cubes
+- rendered cubes above the selected density threshold
+- added threshold-based filtering and density-based visual distinction
+- enabled orbit interaction for result inspection
+
+### Result
+Users can now inspect the optimized structure in an interactive 3D view instead of relying only on static images, which makes the output easier to analyze and interpret.
