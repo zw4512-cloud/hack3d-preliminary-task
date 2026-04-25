@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, Line } from "@react-three/drei";
 import "./App.css";
 
 const API = "http://127.0.0.1:5000";
@@ -117,6 +119,152 @@ const ATTACKS = [
   { value: "quantize", label: "Quantization", desc: "Reduces to 5 density levels" },
   { value: "smooth", label: "Smoothing", desc: "Moving-average blur" },
 ];
+
+const DOMAIN_SIZE = { x: 10, y: 2, z: 1 };
+
+function mapLoadToWorld(load, params) {
+  const { x: Lx, y: Ly, z: Lz } = DOMAIN_SIZE;
+  return [
+    -Lx / 2 + (load.x / Math.max(params.nx, 1)) * Lx,
+    -Ly / 2 + (load.y / Math.max(params.ny, 1)) * Ly,
+    -Lz / 2 + (load.z / Math.max(params.nz, 1)) * Lz,
+  ];
+}
+
+function LoadArrow3D({ position, direction }) {
+  const rotationMap = {
+    "x+": [0, 0, -Math.PI / 2],
+    "x-": [0, 0, Math.PI / 2],
+    "y+": [0, 0, 0],
+    "y-": [0, 0, Math.PI],
+    "z+": [-Math.PI / 2, 0, 0],
+    "z-": [Math.PI / 2, 0, 0],
+  };
+
+  const rot = rotationMap[direction] || [0, 0, Math.PI];
+
+  return (
+    <group position={position} rotation={rot}>
+      <mesh position={[0, 0.35, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.5, 12]} />
+        <meshStandardMaterial color="#ff6b35" />
+      </mesh>
+      <mesh position={[0, 0.7, 0]}>
+        <coneGeometry args={[0.08, 0.22, 12]} />
+        <meshStandardMaterial color="#ff6b35" />
+      </mesh>
+    </group>
+  );
+}
+
+function FixedFacePlane({ fixedFace }) {
+  const { x: Lx, y: Ly, z: Lz } = DOMAIN_SIZE;
+
+  const config = {
+    x0: { pos: [-Lx / 2, 0, 0], rot: [0, Math.PI / 2, 0], args: [Lz, Ly] },
+    x1: { pos: [Lx / 2, 0, 0], rot: [0, Math.PI / 2, 0], args: [Lz, Ly] },
+    y0: { pos: [0, -Ly / 2, 0], rot: [-Math.PI / 2, 0, 0], args: [Lx, Lz] },
+    y1: { pos: [0, Ly / 2, 0], rot: [-Math.PI / 2, 0, 0], args: [Lx, Lz] },
+    z0: { pos: [0, 0, -Lz / 2], rot: [0, 0, 0], args: [Lx, Ly] },
+    z1: { pos: [0, 0, Lz / 2], rot: [0, 0, 0], args: [Lx, Ly] },
+  }[fixedFace];
+
+  if (!config) return null;
+
+  return (
+    <mesh position={config.pos} rotation={config.rot}>
+      <planeGeometry args={config.args} />
+      <meshStandardMaterial color="#00e5ff" transparent opacity={0.35} side={2} />
+    </mesh>
+  );
+}
+
+function FaceGrid({ params }) {
+  const { x: Lx, y: Ly, z: Lz } = DOMAIN_SIZE;
+
+  const lines = useMemo(() => {
+    const arr = [];
+
+    const xVals = Array.from({ length: params.nx + 1 }, (_, i) => -Lx / 2 + (i / Math.max(params.nx, 1)) * Lx);
+    const yVals = Array.from({ length: params.ny + 1 }, (_, i) => -Ly / 2 + (i / Math.max(params.ny, 1)) * Ly);
+    const zVals = Array.from({ length: params.nz + 1 }, (_, i) => -Lz / 2 + (i / Math.max(params.nz, 1)) * Lz);
+
+    // Front face: z = +Lz/2
+    for (const x of xVals) arr.push([[x, -Ly / 2,  Lz / 2], [x,  Ly / 2,  Lz / 2]]);
+    for (const y of yVals) arr.push([[-Lx / 2, y,  Lz / 2], [Lx / 2, y,  Lz / 2]]);
+
+    // Back face: z = -Lz/2
+    for (const x of xVals) arr.push([[x, -Ly / 2, -Lz / 2], [x,  Ly / 2, -Lz / 2]]);
+    for (const y of yVals) arr.push([[-Lx / 2, y, -Lz / 2], [Lx / 2, y, -Lz / 2]]);
+
+    // Top face: y = +Ly/2
+    for (const x of xVals) arr.push([[x,  Ly / 2, -Lz / 2], [x,  Ly / 2,  Lz / 2]]);
+    for (const z of zVals) arr.push([[-Lx / 2, Ly / 2, z], [Lx / 2, Ly / 2, z]]);
+
+    // Bottom face: y = -Ly/2
+    for (const x of xVals) arr.push([[x, -Ly / 2, -Lz / 2], [x, -Ly / 2,  Lz / 2]]);
+    for (const z of zVals) arr.push([[-Lx / 2, -Ly / 2, z], [Lx / 2, -Ly / 2, z]]);
+
+    // Right face: x = +Lx/2
+    for (const y of yVals) arr.push([[Lx / 2, y, -Lz / 2], [Lx / 2, y,  Lz / 2]]);
+    for (const z of zVals) arr.push([[Lx / 2, -Ly / 2, z], [Lx / 2,  Ly / 2, z]]);
+
+    // Left face: x = -Lx/2
+    for (const y of yVals) arr.push([[-Lx / 2, y, -Lz / 2], [-Lx / 2, y,  Lz / 2]]);
+    for (const z of zVals) arr.push([[-Lx / 2, -Ly / 2, z], [-Lx / 2,  Ly / 2, z]]);
+
+    return arr;
+  }, [params.nx, params.ny, params.nz]);
+
+  return (
+    <>
+      {lines.map((pts, idx) => (
+        <Line key={idx} points={pts} color="#5a7080" lineWidth={1} />
+      ))}
+    </>
+  );
+}
+
+function DomainBox() {
+  const { x: Lx, y: Ly, z: Lz } = DOMAIN_SIZE;
+  return (
+    <mesh>
+      <boxGeometry args={[Lx, Ly, Lz]} />
+      <meshStandardMaterial color="#4d9cff" transparent opacity={0.06} wireframe />
+    </mesh>
+  );
+}
+
+function PointLoads3D({ params }) {
+  return (
+    <>
+      {params.pointLoads.map((load, idx) => {
+        const pos = mapLoadToWorld(load, params);
+        return <LoadArrow3D key={idx} position={pos} direction={load.direction} />;
+      })}
+    </>
+  );
+}
+
+function InputPreview3D({ params }) {
+  return (
+    <div style={{ width: "100%", height: 420, borderRadius: 10, overflow: "hidden" }}>
+      <Canvas camera={{ position: [12, 8, 12], fov: 45 }}>
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[10, 10, 10]} intensity={1.0} />
+        <directionalLight position={[-8, 6, -8]} intensity={0.5} />
+
+        <DomainBox />
+        <FaceGrid params={params} />
+        <FixedFacePlane fixedFace={params.fixedFace} />
+        <PointLoads3D params={params} />
+
+        <OrbitControls enablePan enableZoom enableRotate />
+      </Canvas>
+    </div>
+  );
+}
+
 
 function estimateTime(p) {
   const s = Math.round(p.nx * p.ny * p.nz * p.iterations * 0.008);
@@ -642,6 +790,10 @@ export default function App() {
             <div className="section-label">BOUNDARY CONDITIONS</div>
             <BcDiagram fixedFace={params.fixedFace} pointLoads={params.pointLoads} />
             <SelectField label="Fixed Face" name="fixedFace" options={FACES} value={params.fixedFace} onChange={handleChange} />
+
+            <div className="divider" />
+            <div className="section-label">INTERACTIVE 3D INPUT PREVIEW</div>
+            <InputPreview3D params={params} />
 
             <div className="divider" />
             <div className="section-label">MULTIPLE POINT LOADS</div>

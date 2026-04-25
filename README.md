@@ -317,3 +317,39 @@ The optimization system now supports multiple point loads and can run successful
 - modified load positions, directions, and magnitudes
 
 This completes the required functionality for **Final Task 1**.
+
+
+---
+
+## Final Task 2: Interactive 3D Input Visualization
+
+An interactive 3D input preview was added to the frontend for pre-optimization setup.
+
+### Implemented Features
+- supports standard 3D interaction:
+  - rotation
+  - pan
+  - zoom
+- displays key input information:
+  - design domain
+  - mesh/grid structure
+  - fixed boundary condition
+  - multiple point loads
+- updates in real time as the user changes:
+  - mesh resolution
+  - fixed face
+  - point load positions
+  - point load directions
+  - point load magnitudes
+
+### Frontend Changes
+In `frontend/src/App.js`:
+- added a 3D input preview using React-based 3D rendering
+- visualized the design domain as a box
+- visualized the mesh/grid on all faces
+- highlighted the constrained face
+- displayed all point loads as directional arrows
+- enabled interactive camera controls for rotation, pan, and zoom
+
+### Result
+Users can now inspect the full optimization setup in an interactive 3D view before running the solver, making the input configuration more intuitive and easier to understand.
