@@ -1,164 +1,277 @@
-# HACK3D — SIMP Topology Optimizer
-### 3D Structural Optimization · Digital Manufacturing Security · NYU VIP
+# Hack3D Preliminary Task
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue?style=flat-square&logo=python&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
-![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=flat-square&logo=flask)
-![NumPy](https://img.shields.io/badge/NumPy-only-013243?style=flat-square&logo=numpy)
-![NYU VIP](https://img.shields.io/badge/NYU-VIP%20Hack3D-57068C?style=flat-square)
+This repository is based on the Hack3D SIMP Topology Optimizer and extends the original codebase for the preliminary task in **Advanced Mechanical Design with Vibe Coding**.
+
+## Overview
+
+The project is a full-stack web application for 3D topology optimization.
+
+- **Frontend:** React
+- **Backend:** Flask + NumPy FEM/SIMP optimizer
+- **Core goal:** allow users to define structural conditions, run topology optimization, visualize results, and export designs
+
+This repository includes my implementation of the two required preliminary tasks.
 
 ---
 
-A full-stack web application for **3D topology optimization** using the SIMP (Solid Isotropic Material with Penalization) method — built for the NYU VIP Hack3D Digital Manufacturing Cybersecurity project.
+## Completed Tasks
 
-Users can define boundary conditions, apply loads, and generate structurally optimized 3D geometries directly in the browser — no coding required. The app also features a **Watermark Lab** for embedding and testing digital signatures in density fields, connecting to the team's broader cybersecurity research.
+### Task 1: Directional Load Control
+
+The system was extended to support additional load directions in both the frontend and backend.
+
+Supported directions:
+
+- +X
+- -X
+- +Y
+- -Y
+- +Z
+- -Z
+
+#### Changes made
+- Updated the frontend UI in `frontend/src/App.js`
+- Added multi-direction load buttons for X, Y, and Z directions
+- Updated backend force mapping in `app.py`
+- Added direction mapping logic so the selected load direction is translated into the correct FEM force axis and sign
+
+#### Result
+Users can now choose different loading directions directly from the web interface, and the backend correctly applies those forces during optimization.
 
 ---
 
-## What it looks like
+### Task 2: STL Export for 3D Printing
 
-| Optimizer | Watermark Lab |
-|-----------|---------------|
-| ![Optimizer UI](optimized_design_threshold_0.5.png) | Configure boundary conditions, run SIMP, analyze results |
+The system was extended to export the optimized density field as an STL file for 3D printing.
 
-**Sample outputs after optimization:**
+#### Changes made
+- Added STL export logic in `app.py`
+- Added helper functions to convert thresholded density elements into voxel-based mesh geometry
+- Added a new backend endpoint: `/export/stl`
+- Added an `EXPORT STL` button in `frontend/src/App.js`
 
-| Convergence History | Density Distribution |
-|---|---|
-| ![Convergence](convergence_final.png) | ![Density](density_histogram_final.png) |
+#### Result
+After running topology optimization, the user can click `EXPORT STL` and download an `.stl` file such as:
+
+- `optimized_design_threshold_0.5.stl`
+
+The STL file can be opened in:
+
+- Blender
+- MeshLab
+- Cura
+- Windows 3D Viewer
+
+---
+
+## Project Structure
+
+```text
+hack3d-preliminary-task/
+├── app.py
+├── fem3d_numpy.py
+├── simp_numpy.py
+├── watermark.py
+├── requirements.txt
+├── optimized_design_threshold_0.5.stl
+├── frontend/
+│   ├── package.json
+│   └── src/
+│       └── App.js
+└── README.md
+
+## Important Files
+
+- `app.py`  
+  Flask backend, optimization streaming API, STL export API, watermark APIs
+
+- `fem3d_numpy.py`  
+  3D finite element solver
+
+- `simp_numpy.py`  
+  SIMP topology optimizer
+
+- `frontend/src/App.js`  
+  Main React frontend UI
 
 ---
 
 ## Features
 
-- **Interactive 3D topology optimizer** — configure mesh resolution, volume fraction, SIMP penalty, and iteration count
-- **Live streaming iteration feed** — watch compliance and volume update in real time as the optimizer runs
-- **Visual boundary condition diagram** — isometric 3D preview updates live as you change fixed/load faces
-- **4 quick presets** — Cantilever, Bridge, Column, Quick Test — auto-fill all parameters in one click
-- **Hover tooltips** — plain-English explanations for every engineering parameter
-- **Export button** — download any result image (structure, convergence, histogram) directly from the UI
-- **Watermark Lab** — embed spread-spectrum watermarks into density fields, verify them, and simulate adversarial attacks (Gaussian noise, scaling, zeroing, quantization, smoothing)
+### Topology Optimization
+- 3D mesh resolution control
+- volume fraction control
+- SIMP penalty control
+- iteration control
+- fixed face selection
+- load face selection
+- load magnitude control
+- density threshold visualization
+
+### Directional Load Control
+- +X / -X
+- +Y / -Y
+- +Z / -Z
+
+### Visualization
+- 3D optimized structure
+- convergence history
+- density distribution histogram
+- live iteration feed
+
+### Export
+- image export
+- STL export
+
+### Watermark Lab
+- watermark embedding
+- watermark detection
+- attack simulation
 
 ---
 
-## Project structure
+## Installation
 
-```
-Hack3D-SIMP-Topology-Optimization/
-│
-├── app.py                        # Flask backend — REST + SSE streaming API
-├── fem3d_numpy.py                # Hexahedral FEM solver (pure NumPy)
-├── simp_numpy.py                 # SIMP optimizer core
-├── run_optimization_numpy.py     # Standalone CLI runner (no web UI needed)
-├── watermark.py                  # Spread-spectrum watermarking module
-│
-├── frontend/
-│   └── src/
-│       ├── App.js                # Main React app (optimizer + watermark lab)
-│       └── App.css               # Dark cyberpunk UI styling
-│
-├── .gitignore
-└── README.md
-```
+### 1. Clone the repository
 
----
+```bash id="9ji33o"
+git clone https://github.com/zw4512-cloud/hack3d-preliminary-task.git
+cd hack3d-preliminary-task
 
-## Getting started
+### 2. Backend setup
 
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
+Install Python dependencies:
 
-### 1. Clone the repo
-```bash
-git clone https://github.com/codestdoufu/Hack3D-SIMP-Topology-Optimization.git
-cd Hack3D-SIMP-Topology-Optimization
-```
+```bash id="t6uw2p"
+python -m pip install -r requirements.txt
+python -m pip install numpy-stl
 
-### 2. Install Python dependencies
-```bash
-pip install flask flask-cors numpy matplotlib
-```
+### 3. Frontend setup
 
-### 3. Start the Flask backend
-```bash
-python app.py
-```
-Backend runs at `http://127.0.0.1:5000`. Verify it's alive at `/health`.
+cd frontend
+npm install
 
-### 4. Start the React frontend
+## Frontend Setup
+
 ```bash
 cd frontend
 npm install
+```
+
+## How to Run
+
+### Start the Backend
+
+From the project root:
+
+```bash
+python app.py
+```
+
+Backend runs at:
+
+```text
+http://127.0.0.1:5000
+```
+
+### Start the Frontend
+
+From the `frontend` folder:
+
+```bash
 npm start
 ```
-App opens at `http://localhost:3000`.
 
-### 5. Run a quick test
-In the sidebar, click the **⚡ Quick Test** preset and hit **RUN OPTIMIZATION**. You'll see the live iteration feed and a 3D result in about 15 seconds.
+Frontend runs at:
 
----
+```text
+http://localhost:3000
+```
 
-## How the optimizer works
+## How to Use
 
-The core algorithm is **SIMP (Solid Isotropic Material with Penalization)**:
+### Run Topology Optimization
 
-1. A 3D hexahedral mesh is created over the design domain
-2. Each element is assigned a density value ρ ∈ [0, 1]
-3. The FEM solver computes structural compliance (how much the structure deforms under load)
-4. Sensitivities are computed and densities are updated to minimize compliance while respecting the volume constraint
-5. A density filter smooths the field to prevent checkerboarding
-6. This repeats for N iterations until convergence
+1. Open the frontend in the browser.
+2. Choose a preset or customize parameters.
+3. Select:
+   - fixed face
+   - load face
+   - load direction
+   - load magnitude
+4. Click **RUN OPTIMIZATION**.
+5. Wait for the result panels to appear.
 
-The penalization (p = 3 by default) pushes densities toward 0 or 1, producing a clean solid/void design.
+### Export STL
 
----
+1. Run optimization first.
+2. Wait until the optimization result is displayed.
+3. Click **EXPORT STL**.
+4. Download the STL file.
 
-## API endpoints
+## Notes on STL Export
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET`  | `/health` | Health check |
-| `POST` | `/optimize/stream` | Run optimization — returns Server-Sent Events stream |
-| `POST` | `/watermark/embed` | Embed watermark into density field |
-| `POST` | `/watermark/detect` | Detect and decode watermark |
-| `POST` | `/watermark/attack` | Simulate adversarial attack on watermarked density |
+The STL export is generated from the optimized density field.
 
----
+- Elements with density above the selected threshold are kept.
+- Each active element is converted into voxel-based mesh geometry.
+- The generated voxel mesh is exported as a binary STL file.
 
-## Watermark module
+This is a simple and practical approach for preliminary 3D printing export.
 
-`watermark.py` implements **spread-spectrum digital watermarking** for FEM density fields:
+## Example Output Files
 
-- **Embed** — a binary message is spread over a pseudo-random carrier sequence and added to the density field at amplitude α
-- **Detect** — the carrier is correlated against the recovered perturbation to decode the message
-- **Attack simulation** — tests robustness against noise, scaling, zeroing, quantization, and smoothing
+This repository includes or may include example outputs such as:
 
-This connects to the Hack3D team's broader research on protecting CAD/manufacturing data from cyber threats.
+- optimization screenshots
+- directional load test images
+- STL example files
 
----
+Example STL output:
 
-## Built with
+```text
+optimized_design_threshold_0.5.stl
+```
 
-- [NumPy](https://numpy.org/) — FEM solver and SIMP optimizer (no PyTorch required)
-- [Matplotlib](https://matplotlib.org/) — 3D visualization and convergence plots
-- [Flask](https://flask.palletsprojects.com/) — Python backend with SSE streaming
-- [React](https://react.dev/) — Frontend UI
-- [Barlow / Share Tech Mono](https://fonts.google.com/) — Typography
+## Technical Notes
 
----
+### Directional Load Mapping
 
-## Team
+The frontend sends symbolic load directions such as:
 
-Built by **David Fu** as part of the **NYU VIP Hack3D** team.
+- `x+`
+- `x-`
+- `y+`
+- `y-`
+- `z+`
+- `z-`
 
-- Faculty Advisor: Prof. Nikhil Gupta (ngupta@nyu.edu)
-- NYU Composite Materials and Mechanics Lab
-- NYU Center for Cybersecurity
-- Supported by the National Science Foundation
+The backend maps these directions to:
 
----
+- force axis
+- sign of total force
 
-## License
+This allows the FEM solver to apply the correct distributed load.
 
-For academic and research use within the NYU VIP program.
+### Why Some `+` / `-` Results May Look Similar
+
+For a linear compliance-based topology optimization problem, changing only the sign of the load may still produce a similar optimized structure. This is expected in many symmetric linear settings and does not mean the directional load feature is incorrect.
+
+## Submission Notes
+
+This repository is public and contains:
+
+- relevant code
+- frontend and backend modifications
+- STL export functionality
+- instructions to run the project
+
+Repository URL:
+
+```text
+https://github.com/zw4512-cloud/hack3d-preliminary-task
+```
+
+## Acknowledgment
+
+This project is based on the Hack3D SIMP Topology Optimizer codebase and was extended for the preliminary task requirements.
