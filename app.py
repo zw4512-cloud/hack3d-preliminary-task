@@ -132,6 +132,38 @@ def plot_3d_design(nodes, elems, density, threshold=0.5, title="3D Structure"):
     plt.tight_layout()
     return fig
 
+def apply_point_load(fem, x_idx, y_idx, z_idx, direction, magnitude, Lx=1.0, Ly=0.2, Lz=0.1):
+    """
+    Apply one point load to the nearest node in the mesh.
+
+    x_idx, y_idx, z_idx are mesh-index locations, not physical coordinates.
+    direction is one of: x+, x-, y+, y-, z+, z-
+    """
+    direction_map = {
+        'x+': (0, +1.0),
+        'x-': (0, -1.0),
+        'y+': (1, +1.0),
+        'y-': (1, -1.0),
+        'z+': (2, +1.0),
+        'z-': (2, -1.0),
+    }
+
+    axis, sign = direction_map.get(direction, (1, -1.0))
+
+    # Convert mesh indices to physical coordinates
+    target = np.array([
+        (float(x_idx) / fem.nx) * Lx,
+        (float(y_idx) / fem.ny) * Ly,
+        (float(z_idx) / fem.nz) * Lz,
+    ])
+
+    # Find nearest node
+    dists = np.linalg.norm(fem.nodes_np - target, axis=1)
+    node_idx = int(np.argmin(dists))
+
+    # Each node has 3 DOFs: x, y, z
+    dof = node_idx * 3 + axis
+    fem.F_global[dof] += sign * float(magnitude)
 
 def build_fem(data):
     """Construct and configure a HexFEMSolver3D from request payload."""
@@ -140,9 +172,14 @@ def build_fem(data):
     nz = int(data.get('nz', 4))
 
     fixed_face = data.get('fixedFace', 'x0')
+
+    # Backward-compatible old single-load fields
     load_face = data.get('loadFace', 'x1')
     load_dir = data.get('loadDirection', 'y-')
     load_mag = float(data.get('loadMagnitude', 1e4))
+
+    # New final-task multi-point loads
+    point_loads = data.get('pointLoads', [])
 
     fem = HexFEMSolver3D(E_mod=200e9, nu=0.3)
     fem.set_mesh(Lx=1.0, Ly=0.2, Lz=0.1, nx=nx, ny=ny, nz=nz)
@@ -165,20 +202,33 @@ def build_fem(data):
         'z-': (2, -1.0),
     }
 
+    # Fixed boundary
     bc_axis, bc_coord = face_map.get(fixed_face, (0, 0.0))
     fem.fix_face(axis=bc_axis, coord=bc_coord)
 
-    load_axis, load_coord = face_map.get(load_face, (0, 1.0))
-    force_dir, sign = direction_map.get(load_dir, (1, -1.0))
+    # New mode: multiple point loads
+    if point_loads and len(point_loads) > 0:
+        for load in point_loads:
+            apply_point_load(
+                fem=fem,
+                x_idx=load.get('x', nx),
+                y_idx=load.get('y', ny // 2),
+                z_idx=load.get('z', nz // 2),
+                direction=load.get('direction', 'y-'),
+                magnitude=load.get('magnitude', 10000),
+            )
+    else:
+        # Old mode: keep original single-load behavior as fallback
+        load_axis, load_coord = face_map.get(load_face, (0, 1.0))
+        force_dir, sign = direction_map.get(load_dir, (1, -1.0))
+        total_force = sign * load_mag
 
-    total_force = sign * load_mag
-
-    fem.add_distributed_load(
-        axis=load_axis,
-        coord=load_coord,
-        direction=force_dir,
-        total=total_force
-    )
+        fem.add_distributed_load(
+            axis=load_axis,
+            coord=load_coord,
+            direction=force_dir,
+            total=total_force
+        )
 
     return fem
 

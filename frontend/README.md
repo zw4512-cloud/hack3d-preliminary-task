@@ -51,7 +51,7 @@ The system was extended to export the optimized density field as an STL file for
 - Added an `EXPORT STL` button in `frontend/src/App.js`
 
 #### Result
-After running topology optimization, the user can click `EXPORT STL` and download a `.stl` file such as:
+After running topology optimization, the user can click `EXPORT STL` and download an `.stl` file such as:
 
 - `optimized_design_threshold_0.5.stl`
 
@@ -67,12 +67,13 @@ The STL file can be opened in:
 ## Project Structure
 
 ```text
-Hack3D-SIMP-Topology-Optimization/
+hack3d-preliminary-task/
 ├── app.py
 ├── fem3d_numpy.py
 ├── simp_numpy.py
 ├── watermark.py
 ├── requirements.txt
+├── optimized_design_threshold_0.5.stl
 ├── frontend/
 │   ├── package.json
 │   └── src/

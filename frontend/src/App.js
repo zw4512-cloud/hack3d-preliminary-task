@@ -9,9 +9,9 @@ const DEFAULT_PARAMS = {
   penalty: 3.0,
   iterations: 30,
   fixedFace: "x0",
-  loadFace: "x1",
-  loadDirection: "y-",
-  loadMagnitude: 10000,
+  pointLoads: [
+    { x: 20, y: 3, z: 2, direction: "y-", magnitude: 10000 }
+  ],
   threshold: 0.5,
 };
 
@@ -20,26 +20,66 @@ const PRESETS = [
   {
     label: "Cantilever",
     icon: "⊣",
-    desc: "Fixed left, load right",
-    params: { nx: 20, ny: 6, nz: 4, volumeFraction: 0.2, penalty: 3.0, iterations: 60, fixedFace: "x0", loadFace: "x1", loadDirection: "y-", loadMagnitude: 10000, threshold: 0.5 },
+    desc: "Fixed left, one point load near right side",
+    params: {
+      nx: 20, ny: 6, nz: 4,
+      volumeFraction: 0.2,
+      penalty: 3.0,
+      iterations: 60,
+      fixedFace: "x0",
+      pointLoads: [
+        { x: 20, y: 3, z: 2, direction: "y-", magnitude: 10000 }
+      ],
+      threshold: 0.5,
+    },
   },
   {
     label: "Bridge",
     icon: "⌒",
-    desc: "Fixed bottom, load top-center",
-    params: { nx: 24, ny: 8, nz: 4, volumeFraction: 0.3, penalty: 3.0, iterations: 80, fixedFace: "y0", loadFace: "y1", loadDirection: "y-", loadMagnitude: 20000, threshold: 0.5 },
+    desc: "Fixed bottom, one point load near top-center",
+    params: {
+      nx: 24, ny: 8, nz: 4,
+      volumeFraction: 0.3,
+      penalty: 3.0,
+      iterations: 80,
+      fixedFace: "y0",
+      pointLoads: [
+        { x: 12, y: 8, z: 2, direction: "y-", magnitude: 20000 }
+      ],
+      threshold: 0.5,
+    },
   },
   {
     label: "Column",
     icon: "⬆",
-    desc: "Fixed base, vertical load",
-    params: { nx: 6, ny: 20, nz: 6, volumeFraction: 0.25, penalty: 3.5, iterations: 60, fixedFace: "y0", loadFace: "y1", loadDirection: "y-", loadMagnitude: 50000, threshold: 0.5 },
+    desc: "Fixed base, vertical point load",
+    params: {
+      nx: 6, ny: 20, nz: 6,
+      volumeFraction: 0.25,
+      penalty: 3.5,
+      iterations: 60,
+      fixedFace: "y0",
+      pointLoads: [
+        { x: 3, y: 20, z: 3, direction: "y-", magnitude: 50000 }
+      ],
+      threshold: 0.5,
+    },
   },
   {
     label: "Quick Test",
     icon: "⚡",
     desc: "Fast low-res preview",
-    params: { nx: 10, ny: 4, nz: 3, volumeFraction: 0.2, penalty: 3.0, iterations: 30, fixedFace: "x0", loadFace: "x1", loadDirection: "y-", loadMagnitude: 10000, threshold: 0.5 },
+    params: {
+      nx: 10, ny: 4, nz: 3,
+      volumeFraction: 0.2,
+      penalty: 3.0,
+      iterations: 30,
+      fixedFace: "x0",
+      pointLoads: [
+        { x: 10, y: 2, z: 1, direction: "y-", magnitude: 10000 }
+      ],
+      threshold: 0.5,
+    },
   },
 ];
 
@@ -52,10 +92,7 @@ const TIPS = {
   "SIMP Penalty": "Penalises intermediate densities, pushing material to be fully solid or void. Higher = crisper result.",
   "Iterations": "How many optimization steps to run. More = converges better, takes longer.",
   "Density Threshold": "Elements below this density are hidden in the 3D view.",
-  "Load Magnitude": "Total applied force in Newtons.",
   "Fixed Face": "The face of the structure that is rigidly clamped — it cannot move.",
-  "Load Face": "The face where the external force is applied.",
-  "Load Direction": "Which direction the force pushes.",
 };
 
 const FACES = [
@@ -74,11 +111,11 @@ const LOAD_DIRECTIONS = [
 ];
 
 const ATTACKS = [
-  { value: "noise",    label: "Gaussian Noise",   desc: "Adds random perturbation" },
-  { value: "scale",    label: "Density Scaling",  desc: "Multiplies all values by 0.9" },
-  { value: "zero",     label: "Random Zeroing",   desc: "Zeros 20% of elements" },
-  { value: "quantize", label: "Quantization",     desc: "Reduces to 5 density levels" },
-  { value: "smooth",   label: "Smoothing",        desc: "Moving-average blur" },
+  { value: "noise", label: "Gaussian Noise", desc: "Adds random perturbation" },
+  { value: "scale", label: "Density Scaling", desc: "Multiplies all values by 0.9" },
+  { value: "zero", label: "Random Zeroing", desc: "Zeros 20% of elements" },
+  { value: "quantize", label: "Quantization", desc: "Reduces to 5 density levels" },
+  { value: "smooth", label: "Smoothing", desc: "Moving-average blur" },
 ];
 
 function estimateTime(p) {
@@ -107,9 +144,15 @@ function SliderField({ label, name, min, max, step, value, onChange, unit = "" }
         </span>
         <span className="field-value">{value}{unit}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
         onChange={e => onChange(name, step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value))}
-        className="slider" />
+        className="slider"
+      />
       <div className="slider-bounds"><span>{min}</span><span>{max}</span></div>
     </div>
   );
@@ -124,9 +167,13 @@ function SelectField({ label, name, options, value, onChange }) {
       </span>
       <div className="select-row">
         {options.map(opt => (
-          <button key={opt.value}
+          <button
+            key={opt.value}
             className={`face-btn ${value === opt.value ? "active" : ""}`}
-            onClick={() => onChange(name, opt.value)}>{opt.label}</button>
+            onClick={() => onChange(name, opt.value)}
+          >
+            {opt.label}
+          </button>
         ))}
       </div>
     </div>
@@ -147,71 +194,46 @@ function PresetBar({ onSelect }) {
   );
 }
 
-// ── BC DIAGRAM ────────────────────────────────────────────────────────────────
-function BcDiagram({ fixedFace, loadFace, loadDirection }) {
-  // Maps face value to which SVG face to highlight
+// ── SIMPLE BC PANEL ──────────────────────────────────────────────────────────
+function BcDiagram({ fixedFace, pointLoads }) {
   const faceColors = { x0: "#1a2a3a", x1: "#1a2a3a", y0: "#1a2a3a", y1: "#1a2a3a", z0: "#1a2a3a", z1: "#1a2a3a" };
   const fixedColor = "rgba(0,229,255,0.25)";
-  const loadColor  = "rgba(255,107,53,0.3)";
   const fc = { ...faceColors };
   if (fixedFace) fc[fixedFace] = fixedColor;
-  if (loadFace)  fc[loadFace]  = loadColor;
 
-  // Arrow direction for load
+  const firstLoad = pointLoads?.[0];
   const arrowMap = {
-  "x+": "→",
-  "x-": "←",
-  "y+": "↑",
-  "y-": "↓",
-  "z+": "↗",
-  "z-": "↙",
-};
-
-const arrowDir = arrowMap[loadDirection] || "↓";
+    "x+": "→",
+    "x-": "←",
+    "y+": "↑",
+    "y-": "↓",
+    "z+": "↗",
+    "z-": "↙",
+  };
+  const arrowDir = firstLoad ? (arrowMap[firstLoad.direction] || "↓") : "↓";
 
   return (
     <div className="bc-diagram">
       <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "auto" }}>
-        {/* Isometric box */}
-        {/* Bottom face */}
-        <polygon points="30,70 80,85 130,70 80,55" fill={fc["y0"]} stroke="#2a3540" strokeWidth="1"/>
-        {/* Top face */}
-        <polygon points="30,30 80,45 130,30 80,15" fill={fc["y1"]} stroke="#2a3540" strokeWidth="1"/>
-        {/* Left face (x0) */}
-        <polygon points="30,30 30,70 80,85 80,45" fill={fc["x0"]} stroke="#2a3540" strokeWidth="1"/>
-        {/* Right face (x1) */}
-        <polygon points="130,30 130,70 80,85 80,45" fill={fc["x1"]} stroke="#2a3540" strokeWidth="1"/>
-        {/* Front face (z0) - small left sliver */}
-        <polygon points="30,30 30,70 32,69 32,31" fill={fc["z0"]} stroke="#2a3540" strokeWidth="0.5"/>
-        {/* Back face (z1) - small right sliver */}
-        <polygon points="130,30 130,70 128,69 128,31" fill={fc["z1"]} stroke="#2a3540" strokeWidth="0.5"/>
+        <polygon points="30,70 80,85 130,70 80,55" fill={fc["y0"]} stroke="#2a3540" strokeWidth="1" />
+        <polygon points="30,30 80,45 130,30 80,15" fill={fc["y1"]} stroke="#2a3540" strokeWidth="1" />
+        <polygon points="30,30 30,70 80,85 80,45" fill={fc["x0"]} stroke="#2a3540" strokeWidth="1" />
+        <polygon points="130,30 130,70 80,85 80,45" fill={fc["x1"]} stroke="#2a3540" strokeWidth="1" />
+        <polygon points="30,30 30,70 32,69 32,31" fill={fc["z0"]} stroke="#2a3540" strokeWidth="0.5" />
+        <polygon points="130,30 130,70 128,69 128,31" fill={fc["z1"]} stroke="#2a3540" strokeWidth="0.5" />
 
-        {/* Fixed face hatch lines */}
-        {fixedFace === "x0" && [0,1,2,3,4].map(i => (
-          <line key={i} x1={28} y1={33 + i*9} x2={18} y2={38 + i*9} stroke="var(--accent)" strokeWidth="1" opacity="0.6"/>
+        {fixedFace === "x0" && [0, 1, 2, 3, 4].map(i => (
+          <line key={i} x1={28} y1={33 + i * 9} x2={18} y2={38 + i * 9} stroke="var(--accent)" strokeWidth="1" opacity="0.6" />
         ))}
-        {fixedFace === "x1" && [0,1,2,3,4].map(i => (
-          <line key={i} x1={132} y1={33 + i*9} x2={142} y2={38 + i*9} stroke="var(--accent)" strokeWidth="1" opacity="0.6"/>
+        {fixedFace === "x1" && [0, 1, 2, 3, 4].map(i => (
+          <line key={i} x1={132} y1={33 + i * 9} x2={142} y2={38 + i * 9} stroke="var(--accent)" strokeWidth="1" opacity="0.6" />
         ))}
-        {fixedFace === "y0" && [0,1,2,3,4].map(i => (
-          <line key={i} x1={35 + i*12} y1={88} x2={30 + i*12} y2={96} stroke="var(--accent)" strokeWidth="1" opacity="0.6"/>
+        {fixedFace === "y0" && [0, 1, 2, 3, 4].map(i => (
+          <line key={i} x1={35 + i * 12} y1={88} x2={30 + i * 12} y2={96} stroke="var(--accent)" strokeWidth="1" opacity="0.6" />
         ))}
 
-        {/* Load arrow */}
-        {loadFace === "x1" && (
-          <text x="148" y="52" fill="var(--accent2)" fontSize="14" textAnchor="middle">{arrowDir}</text>
-        )}
-        {loadFace === "x0" && (
-          <text x="12" y="52" fill="var(--accent2)" fontSize="14" textAnchor="middle">{arrowDir}</text>
-        )}
-        {loadFace === "y1" && (
-          <text x="80" y="10" fill="var(--accent2)" fontSize="14" textAnchor="middle">{arrowDir}</text>
-        )}
-        {loadFace === "y0" && (
-          <text x="80" y="98" fill="var(--accent2)" fontSize="14" textAnchor="middle">{arrowDir}</text>
-        )}
+        <text x="145" y="18" fill="var(--accent2)" fontSize="14" textAnchor="middle">{arrowDir}</text>
 
-        {/* Labels */}
         <text x="22" y="52" fill="var(--accent)" fontSize="7" opacity="0.7" fontFamily="monospace">X₀</text>
         <text x="133" y="52" fill="var(--accent)" fontSize="7" opacity="0.7" fontFamily="monospace">X₁</text>
         <text x="76" y="94" fill="var(--accent)" fontSize="7" opacity="0.7" fontFamily="monospace">Y₀</text>
@@ -220,12 +242,13 @@ const arrowDir = arrowMap[loadDirection] || "↓";
       <div className="bc-legend">
         <span className="bc-legend-item"><span className="bc-swatch" style={{ background: "rgba(0,229,255,0.4)" }} />Fixed</span>
         <span className="bc-legend-item"><span className="bc-swatch" style={{ background: "rgba(255,107,53,0.5)" }} />Load</span>
+        <span className="bc-legend-item">{pointLoads?.length || 0} load(s)</span>
       </div>
     </div>
   );
 }
 
-// ── EXPORT BUTTON ─────────────────────────────────────────────────────────────
+// ── EXPORT BUTTONS ───────────────────────────────────────────────────────────
 function ExportStlBtn({ params }) {
   const [loading, setLoading] = useState(false);
 
@@ -260,7 +283,7 @@ function ExportStlBtn({ params }) {
   );
 }
 
-function ExportBtn({ result, params }) {
+function ExportBtn({ result }) {
   const [open, setOpen] = useState(false);
 
   const downloadImg = (b64, filename) => {
@@ -274,7 +297,7 @@ function ExportBtn({ result, params }) {
     if (!result) return;
     downloadImg(result.images.structure["0.5"], "structure_rho05.png");
     setTimeout(() => downloadImg(result.images.convergence, "convergence.png"), 300);
-    setTimeout(() => downloadImg(result.images.histogram,   "density_histogram.png"), 600);
+    setTimeout(() => downloadImg(result.images.histogram, "density_histogram.png"), 600);
     setOpen(false);
   };
 
@@ -288,8 +311,8 @@ function ExportBtn({ result, params }) {
           <button onClick={() => { downloadImg(result.images.structure["0.3"], "structure_rho03.png"); setOpen(false); }}>Structure ρ&gt;0.3</button>
           <button onClick={() => { downloadImg(result.images.structure["0.5"], "structure_rho05.png"); setOpen(false); }}>Structure ρ&gt;0.5</button>
           <button onClick={() => { downloadImg(result.images.convergence, "convergence.png"); setOpen(false); }}>Convergence plot</button>
-          <button onClick={() => { downloadImg(result.images.histogram,   "density_histogram.png"); setOpen(false); }}>Density histogram</button>
-          <div className="export-divider"/>
+          <button onClick={() => { downloadImg(result.images.histogram, "density_histogram.png"); setOpen(false); }}>Density histogram</button>
+          <div className="export-divider" />
           <button onClick={exportAll}>⬇ Download all (3 files)</button>
         </div>
       )}
@@ -339,7 +362,7 @@ function Toast({ toasts }) {
 }
 
 function ScoreBar({ score }) {
-  const pct   = Math.min(100, Math.max(0, score));
+  const pct = Math.min(100, Math.max(0, score));
   const color = pct > 70 ? "var(--green)" : pct > 40 ? "var(--orange)" : "#ff4444";
   return (
     <div className="score-bar-wrap">
@@ -353,30 +376,30 @@ function ScoreBar({ score }) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("optimizer");
-  const [params, setParams]       = useState(DEFAULT_PARAMS);
+  const [params, setParams] = useState(DEFAULT_PARAMS);
 
-  const [result, setResult]       = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [elapsed, setElapsed]     = useState(null);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [elapsed, setElapsed] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
-  const [iterLog, setIterLog]     = useState([]);
-  const [progress, setProgress]   = useState(0);
+  const [iterLog, setIterLog] = useState([]);
+  const [progress, setProgress] = useState(0);
   const [activeThreshold, setActiveThreshold] = useState("0.5");
   const logRef = useRef(null);
-  const t0Ref  = useRef(null);
+  const t0Ref = useRef(null);
 
-  const [origDensity, setOrigDensity]       = useState(null);
-  const [wmDensity, setWmDensity]           = useState(null);
-  const [wmMessage, setWmMessage]           = useState("NYU-HACK3D");
-  const [wmAlpha, setWmAlpha]               = useState(0.03);
-  const [wmKey, setWmKey]                   = useState("hack3d-nyu-vip-2025");
-  const [wmEmbedResult, setWmEmbedResult]   = useState(null);
+  const [origDensity, setOrigDensity] = useState(null);
+  const [wmDensity, setWmDensity] = useState(null);
+  const [wmMessage, setWmMessage] = useState("NYU-HACK3D");
+  const [wmAlpha, setWmAlpha] = useState(0.03);
+  const [wmKey, setWmKey] = useState("hack3d-nyu-vip-2025");
+  const [wmEmbedResult, setWmEmbedResult] = useState(null);
   const [wmDetectResult, setWmDetectResult] = useState(null);
   const [wmAttackResult, setWmAttackResult] = useState(null);
-  const [wmAttack, setWmAttack]             = useState("noise");
-  const [wmLoading, setWmLoading]           = useState(false);
-  const [wmStep, setWmStep]                 = useState("idle");
+  const [wmAttack, setWmAttack] = useState("noise");
+  const [wmLoading, setWmLoading] = useState(false);
+  const [wmStep, setWmStep] = useState("idle");
 
   const [toasts, setToasts] = useState([]);
   const toastId = useRef(0);
@@ -387,15 +410,54 @@ export default function App() {
   };
 
   const handleChange = (name, value) => setParams(p => ({ ...p, [name]: value }));
-  const handlePreset = (presetParams) => { setParams(presetParams); addToast(`Preset loaded`, "info"); };
+
+  const handlePointLoadChange = (index, field, value) => {
+    setParams(prev => {
+      const updated = [...prev.pointLoads];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, pointLoads: updated };
+    });
+  };
+
+  const addPointLoad = () => {
+    setParams(prev => ({
+      ...prev,
+      pointLoads: [
+        ...prev.pointLoads,
+        {
+          x: prev.nx,
+          y: Math.floor(prev.ny / 2),
+          z: Math.floor(prev.nz / 2),
+          direction: "y-",
+          magnitude: 10000
+        }
+      ]
+    }));
+  };
+
+  const removePointLoad = (index) => {
+    setParams(prev => ({
+      ...prev,
+      pointLoads: prev.pointLoads.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handlePreset = (presetParams) => {
+    setParams(presetParams);
+    addToast("Preset loaded", "info");
+  };
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [iterLog]);
 
   const handleRun = () => {
-    setLoading(true); setError(null); setResult(null);
-    setIterLog([]); setProgress(0); setStatusMsg("Connecting…");
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setIterLog([]);
+    setProgress(0);
+    setStatusMsg("Connecting…");
     t0Ref.current = Date.now();
 
     fetch(`${API}/optimize/stream`, {
@@ -408,7 +470,10 @@ export default function App() {
       const dec = new TextDecoder();
       let buf = "";
       const pump = () => reader.read().then(({ done, value }) => {
-        if (done) { setLoading(false); return; }
+        if (done) {
+          setLoading(false);
+          return;
+        }
         buf += dec.decode(value, { stream: true });
         const lines = buf.split("\n");
         buf = lines.pop();
@@ -425,18 +490,28 @@ export default function App() {
             } else if (evt.type === "done") {
               setResult(evt);
               setElapsed(((Date.now() - t0Ref.current) / 1000).toFixed(1));
-              setProgress(100); setStatusMsg("Complete ✓"); setLoading(false);
-              setOrigDensity(evt.density); setWmDensity(evt.density);
-              setWmStep("idle"); setWmEmbedResult(null); setWmDetectResult(null); setWmAttackResult(null);
+              setProgress(100);
+              setStatusMsg("Complete ✓");
+              setLoading(false);
+              setOrigDensity(evt.density);
+              setWmDensity(evt.density);
+              setWmStep("idle");
+              setWmEmbedResult(null);
+              setWmDetectResult(null);
+              setWmAttackResult(null);
               addToast("Optimization complete — density field ready", "ok");
             } else if (evt.type === "error") {
-              setError(evt.msg); setLoading(false);
+              setError(evt.msg);
+              setLoading(false);
               addToast("Backend error: " + evt.msg, "err");
             }
-          } catch (_) {}
+          } catch (_) { }
         }
         pump();
-      }).catch(e => { setError(e.message); setLoading(false); });
+      }).catch(e => {
+        setError(e.message);
+        setLoading(false);
+      });
       pump();
     }).catch(() => {
       setError(`Cannot reach Flask at ${API} — run: python app.py`);
@@ -449,31 +524,43 @@ export default function App() {
     setWmLoading(true);
     try {
       const res = await fetch(`${API}/watermark/embed`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ density: origDensity, message: wmMessage, alpha: wmAlpha, secretKey: wmKey }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setWmEmbedResult(data); setWmDensity(data.watermarked_density);
-      setWmStep("embedded"); setWmDetectResult(null); setWmAttackResult(null);
+      setWmEmbedResult(data);
+      setWmDensity(data.watermarked_density);
+      setWmStep("embedded");
+      setWmDetectResult(null);
+      setWmAttackResult(null);
       addToast(`Watermark embedded — SNR ${data.snr_db} dB`, "ok");
-    } catch (e) { addToast("Embed error: " + e.message, "err"); }
-    finally { setWmLoading(false); }
+    } catch (e) {
+      addToast("Embed error: " + e.message, "err");
+    } finally {
+      setWmLoading(false);
+    }
   };
 
   const handleDetect = async () => {
     setWmLoading(true);
     try {
       const res = await fetch(`${API}/watermark/detect`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ density: wmDensity, original_density: origDensity, secretKey: wmKey, n_bits: wmEmbedResult?.n_bits || 64 }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setWmDetectResult(data); setWmStep("detected");
+      setWmDetectResult(data);
+      setWmStep("detected");
       addToast(data.is_watermarked ? "Watermark verified ✓" : "Watermark not detected ✗", data.is_watermarked ? "ok" : "err");
-    } catch (e) { addToast("Detect error: " + e.message, "err"); }
-    finally { setWmLoading(false); }
+    } catch (e) {
+      addToast("Detect error: " + e.message, "err");
+    } finally {
+      setWmLoading(false);
+    }
   };
 
   const handleAttack = async () => {
@@ -481,18 +568,23 @@ export default function App() {
     setWmLoading(true);
     try {
       const res = await fetch(`${API}/watermark/attack`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ density: wmDensity, original_density: origDensity, attack: wmAttack, secretKey: wmKey }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setWmAttackResult(data); setWmStep("attacked");
+      setWmAttackResult(data);
+      setWmStep("attacked");
       addToast(data.is_watermarked_after_attack ? "Watermark survived the attack ✓" : "Attack destroyed watermark ✗", data.is_watermarked_after_attack ? "ok" : "err");
-    } catch (e) { addToast("Attack error: " + e.message, "err"); }
-    finally { setWmLoading(false); }
+    } catch (e) {
+      addToast("Attack error: " + e.message, "err");
+    } finally {
+      setWmLoading(false);
+    }
   };
 
-  const PIPE_STEPS  = ["idle", "embedded", "detected", "attacked"];
+  const PIPE_STEPS = ["idle", "embedded", "detected", "attacked"];
   const PIPE_LABELS = { idle: "READY", embedded: "EMBEDDED", detected: "VERIFIED", attacked: "ATTACKED" };
   const currentStepIdx = PIPE_STEPS.indexOf(wmStep);
   const elemCount = params.nx * params.ny * params.nz;
@@ -530,48 +622,134 @@ export default function App() {
             <div className="section-label">QUICK PRESETS</div>
             <PresetBar onSelect={handlePreset} />
             <div className="divider" />
+
             <div className="section-label">MESH RESOLUTION</div>
-            <SliderField label="Elements X" name="nx" min={5}  max={40} step={1} value={params.nx} onChange={handleChange} />
-            <SliderField label="Elements Y" name="ny" min={2}  max={12} step={1} value={params.ny} onChange={handleChange} />
-            <SliderField label="Elements Z" name="nz" min={2}  max={8}  step={1} value={params.nz} onChange={handleChange} />
+            <SliderField label="Elements X" name="nx" min={5} max={40} step={1} value={params.nx} onChange={handleChange} />
+            <SliderField label="Elements Y" name="ny" min={2} max={12} step={1} value={params.ny} onChange={handleChange} />
+            <SliderField label="Elements Z" name="nz" min={2} max={8} step={1} value={params.nz} onChange={handleChange} />
             <div className="info-row">
               <span>{elemCount.toLocaleString()} elements</span>
               <span style={{ color: "var(--accent2)" }}>{estimateTime(params)}</span>
             </div>
+
             <div className="divider" />
             <div className="section-label">OPTIMIZER</div>
             <SliderField label="Volume Fraction" name="volumeFraction" min={0.1} max={0.8} step={0.01} value={params.volumeFraction} onChange={handleChange} />
-            <SliderField label="SIMP Penalty"    name="penalty"        min={1.0} max={5.0} step={0.1}  value={params.penalty}        onChange={handleChange} />
-            <SliderField label="Iterations"      name="iterations"     min={10}  max={200} step={10}   value={params.iterations}     onChange={handleChange} />
+            <SliderField label="SIMP Penalty" name="penalty" min={1.0} max={5.0} step={0.1} value={params.penalty} onChange={handleChange} />
+            <SliderField label="Iterations" name="iterations" min={10} max={200} step={10} value={params.iterations} onChange={handleChange} />
+
             <div className="divider" />
             <div className="section-label">BOUNDARY CONDITIONS</div>
-            <BcDiagram fixedFace={params.fixedFace} loadFace={params.loadFace} loadDirection={params.loadDirection} />
+            <BcDiagram fixedFace={params.fixedFace} pointLoads={params.pointLoads} />
             <SelectField label="Fixed Face" name="fixedFace" options={FACES} value={params.fixedFace} onChange={handleChange} />
-            <SelectField label="Load Face"  name="loadFace"  options={FACES} value={params.loadFace}  onChange={handleChange} />
-            <div className="field">
-              <div className="field-header">
-                <span className="field-label">Load Direction</span>
-                <span className="field-value">{params.loadDirection}</span>
-              </div>
-              <div className="select-row" style={{ flexWrap: "wrap" }}>
-                {LOAD_DIRECTIONS.map(o => (
+
+            <div className="divider" />
+            <div className="section-label">MULTIPLE POINT LOADS</div>
+
+            {params.pointLoads.map((load, index) => (
+              <div
+                key={index}
+                className="field"
+                style={{ border: "1px solid #2a3540", padding: 12, borderRadius: 8, marginBottom: 10 }}
+              >
+                <div className="field-header">
+                  <span className="field-label">Load #{index + 1}</span>
                   <button
-                    key={o.value}
-                    className={`face-btn ${params.loadDirection === o.value ? "active" : ""}`}
-                    onClick={() => handleChange("loadDirection", o.value)}
+                    type="button"
+                    className="face-btn"
+                    onClick={() => removePointLoad(index)}
+                    disabled={params.pointLoads.length === 1}
                   >
-                    {o.label}
+                    Remove
                   </button>
-                ))}
+                </div>
+
+                <div className="field-header">
+                  <span className="field-label">X</span>
+                  <span className="field-value">{load.x}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={params.nx}
+                  step={1}
+                  value={load.x}
+                  onChange={e => handlePointLoadChange(index, "x", parseInt(e.target.value))}
+                  className="slider"
+                />
+
+                <div className="field-header">
+                  <span className="field-label">Y</span>
+                  <span className="field-value">{load.y}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={params.ny}
+                  step={1}
+                  value={load.y}
+                  onChange={e => handlePointLoadChange(index, "y", parseInt(e.target.value))}
+                  className="slider"
+                />
+
+                <div className="field-header">
+                  <span className="field-label">Z</span>
+                  <span className="field-value">{load.z}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={params.nz}
+                  step={1}
+                  value={load.z}
+                  onChange={e => handlePointLoadChange(index, "z", parseInt(e.target.value))}
+                  className="slider"
+                />
+
+                <div className="field-header">
+                  <span className="field-label">Direction</span>
+                  <span className="field-value">{load.direction}</span>
+                </div>
+                <div className="select-row" style={{ flexWrap: "wrap" }}>
+                  {LOAD_DIRECTIONS.map(o => (
+                    <button
+                      key={o.value}
+                      className={`face-btn ${load.direction === o.value ? "active" : ""}`}
+                      onClick={() => handlePointLoadChange(index, "direction", o.value)}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="field-header">
+                  <span className="field-label">Magnitude</span>
+                  <span className="field-value">{load.magnitude} N</span>
+                </div>
+                <input
+                  type="range"
+                  min={1000}
+                  max={100000}
+                  step={1000}
+                  value={load.magnitude}
+                  onChange={e => handlePointLoadChange(index, "magnitude", parseInt(e.target.value))}
+                  className="slider"
+                />
               </div>
-            </div>
-            <SliderField label="Load Magnitude" name="loadMagnitude" min={1000} max={100000} step={1000} value={params.loadMagnitude} onChange={handleChange} unit=" N" />
+            ))}
+
+            <button className="face-btn" onClick={addPointLoad}>
+              + Add Load
+            </button>
+
             <div className="divider" />
             <div className="section-label">DISPLAY</div>
             <SliderField label="Density Threshold" name="threshold" min={0.1} max={0.9} step={0.1} value={params.threshold} onChange={handleChange} />
+
             <button className="run-btn" onClick={handleRun} disabled={loading}>
               {loading ? <><span className="spinner" /> COMPUTING…</> : <><span className="run-icon">▶</span> RUN OPTIMIZATION</>}
             </button>
+
             {loading && <>
               <div className="info-row" style={{ padding: "4px 14px 2px" }}>
                 <span style={{ fontFamily: "var(--mono)", fontSize: "10px", color: "var(--text-dim)", maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{statusMsg}</span>
@@ -605,8 +783,16 @@ export default function App() {
                 <span className="field-label">Strength (α)</span>
                 <span className="field-value">{wmAlpha.toFixed(3)}</span>
               </div>
-              <input type="range" min={0.005} max={0.1} step={0.005} value={wmAlpha}
-                onChange={e => setWmAlpha(parseFloat(e.target.value))} className="slider" disabled={!origDensity} />
+              <input
+                type="range"
+                min={0.005}
+                max={0.1}
+                step={0.005}
+                value={wmAlpha}
+                onChange={e => setWmAlpha(parseFloat(e.target.value))}
+                className="slider"
+                disabled={!origDensity}
+              />
               <div className="slider-bounds"><span>subtle</span><span>robust</span></div>
             </div>
             <div className="divider" />
@@ -670,6 +856,7 @@ export default function App() {
                 </p>
               </div>
             )}
+
             {error && (
               <div className="error-card">
                 <span className="error-icon">⚠</span>
@@ -680,6 +867,7 @@ export default function App() {
                 </div>
               </div>
             )}
+
             {(loading || iterLog.length > 0) && (
               <div className="panel result-panel">
                 <div className="panel-title" style={{ justifyContent: "space-between" }}>
@@ -698,6 +886,7 @@ export default function App() {
                 </div>
               </div>
             )}
+
             {result && <>
               <div className="metrics-bar">
                 <div className="metric"><span className="metric-label">COMPLIANCE</span><span className="metric-value" style={{ fontSize: 14 }}>{result.metrics.finalCompliance.toExponential(3)}</span></div>
@@ -706,10 +895,11 @@ export default function App() {
                 <div className="metric" style={{ position: "relative" }}>
                   <span className="metric-label">COMPUTE TIME</span>
                   <span className="metric-value">{elapsed}s</span>
-                  <ExportBtn result={result} params={params} />
-                  {result && <ExportStlBtn params={params} />}
+                  <ExportBtn result={result} />
+                  <ExportStlBtn params={params} />
                 </div>
               </div>
+
               <div className="panel result-panel">
                 <div className="panel-title"><span className="dot green" /> 3D OPTIMIZED STRUCTURE</div>
                 <div className="threshold-tabs">
@@ -721,14 +911,17 @@ export default function App() {
                   <img className="result-img" src={`data:image/png;base64,${result.images.structure[activeThreshold]}`} alt="structure" />
                 )}
               </div>
+
               <div className="panel result-panel">
                 <div className="panel-title"><span className="dot blue" /> CONVERGENCE HISTORY</div>
                 <img className="result-img" src={`data:image/png;base64,${result.images.convergence}`} alt="convergence" />
               </div>
+
               <div className="panel result-panel">
                 <div className="panel-title"><span className="dot orange" /> DENSITY DISTRIBUTION</div>
                 <img className="result-img" src={`data:image/png;base64,${result.images.histogram}`} alt="histogram" />
               </div>
+
               <button className="wm-cta" onClick={() => setActiveTab("watermark")}>
                 <span>◈</span><span>Density field ready — open Watermark Lab →</span>
               </button>
@@ -754,6 +947,7 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+
                 {wmEmbedResult && (
                   <div className="panel result-panel">
                     <div className="panel-title">
@@ -769,6 +963,7 @@ export default function App() {
                     <img className="result-img" src={`data:image/png;base64,${wmEmbedResult.image}`} alt="embed" />
                   </div>
                 )}
+
                 {wmDetectResult && (
                   <div className="panel result-panel">
                     <div className="panel-title">
@@ -786,6 +981,7 @@ export default function App() {
                     <img className="result-img" src={`data:image/png;base64,${wmDetectResult.image}`} alt="detect" />
                   </div>
                 )}
+
                 {wmAttackResult && (
                   <div className="panel result-panel">
                     <div className="panel-title">
